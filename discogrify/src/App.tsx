@@ -12,6 +12,19 @@ function App() {
 
   useEffect(() => {
     (async () => {
+      // Restore from sessionStorage if available (keeps user signed in on reload)
+      const storedToken = sessionStorage.getItem('spotify_access_token')
+      const storedProfile = sessionStorage.getItem('spotify_profile')
+      if (storedToken && storedProfile) {
+        try {
+          setAccessToken(storedToken)
+          setProfile(JSON.parse(storedProfile))
+          return
+        } catch (e) {
+          // fall through to normal flow
+        }
+      }
+
       const result: any = await handleAuthCallback(REDIRECT)
       if (!result) return
       if (result.error) {
@@ -22,6 +35,13 @@ function App() {
       if (result?.profile) {
         setProfile(result.profile)
         setAccessToken(result.accessToken)
+        // persist briefly for reloads (session storage)
+        try {
+          sessionStorage.setItem('spotify_access_token', result.accessToken)
+          sessionStorage.setItem('spotify_profile', JSON.stringify(result.profile))
+        } catch (e) {
+          // ignore storage errors
+        }
         // remove code param from url
         const u = new URL(window.location.href)
         u.searchParams.delete('code')
@@ -54,6 +74,17 @@ function App() {
             <p>Not signed in</p>
             <button onClick={() => startAuth(REDIRECT)}>Login with Spotify</button>
           </>
+        )}
+        {profile && (
+          <div style={{ marginTop: 8 }}>
+            <button onClick={() => {
+              // logout: clear session storage and react state
+              sessionStorage.removeItem('spotify_access_token')
+              sessionStorage.removeItem('spotify_profile')
+              setProfile(null)
+              setAccessToken(null)
+            }}>Logout</button>
+          </div>
         )}
       </section>
     </>

@@ -31,10 +31,11 @@ export async function handleAuthCallback(redirectUri = DEFAULT_REDIRECT) {
     const code = params.get('code');
     if (!code) return null;
 
-    // Prevent double-processing in React StrictMode (dev). Use a per-tab lock.
-    // If another invocation already started handling this code, skip.
-    if (sessionStorage.getItem('spotify_pkce_handled')) return null;
-    sessionStorage.setItem('spotify_pkce_handled', '1');
+    // Prevent double-processing in React StrictMode (dev) by using an
+    // in-memory flag. sessionStorage persisted across reloads and caused
+    // the flow to stop working on subsequent loads.
+    if ((globalThis as any).__spotify_pkce_handling) return null;
+    (globalThis as any).__spotify_pkce_handling = true;
 
     // Remove the code from the URL immediately so concurrent handlers don't see it.
     try {
@@ -53,6 +54,9 @@ export async function handleAuthCallback(redirectUri = DEFAULT_REDIRECT) {
     } catch (err) {
         console.error('handleAuthCallback error', err);
         return { error: err instanceof Error ? err.message : String(err) };
+    } finally {
+        // clear the in-memory handling flag so future flows can run
+        (globalThis as any).__spotify_pkce_handling = false;
     }
 }
 
